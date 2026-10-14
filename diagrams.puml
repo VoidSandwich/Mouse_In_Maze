@@ -1,0 +1,62 @@
+@startuml
+skinparam maxMessageSize 150
+skinparam ParticipantPadding 20
+skinparam BoxPadding 10
+skinparam sequenceMessageAlign center
+
+title Диаграмма последовательности: выполнение эпизода («Одна итерация»)
+
+actor "Пользователь" as User
+participant "frame :\nMazeFrame" as Frame
+participant "agent :\nQLearningAgent" as Agent
+participant "maze :\nMaze" as Maze
+participant "panel :\nMazePanel" as Panel
+
+User -> Frame : Нажатие «Одна итерация» (stepButton)
+activate Frame
+
+Frame -> Frame : runSingleEpisode()\n(запуск потока q-learning-single-episode)
+activate Frame
+
+loop пока эпизод не завершен (simulationRunning)
+    Frame -> Agent : step()
+    activate Agent
+
+    Agent -> Agent : chooseAction(oldPosition)
+    Agent -> Maze : move(oldPosition, action)
+    activate Maze
+    Maze --> Agent : nextPosition
+    deactivate Maze
+
+    Agent -> Maze : getCell(nextPosition)
+    activate Maze
+    Maze --> Agent : MazeCell
+    deactivate Maze
+
+    Agent -> Agent : updateQ(transition)
+
+    Agent --> Frame : AgentStepResult
+    deactivate Agent
+
+    alt Эпизод завершен (success / energyDepleted / stepLimitReached)
+        Frame -> Frame : Thread.sleep(delay)
+        Frame -> Agent : resetEpisode(session.initialEnergy())
+        activate Agent
+        Agent --> Frame
+        deactivate Agent
+        Frame -> Frame : publishSimulationState(true)
+    else Продолжение эпизода
+        Frame -> Frame : publishSimulationState(false)
+    end
+
+    Frame -> Panel : setSimulationState(...)
+    activate Panel
+    Panel --> Frame : repaint()
+    deactivate Panel
+
+    Frame -> Frame : Thread.sleep(session.simulationStepDelayMs())
+end
+
+deactivate Frame
+deactivate Frame
+@enduml
